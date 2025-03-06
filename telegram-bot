@@ -1,5 +1,5 @@
 git init
-git remote add origin https://github.com/사용자명/telegram-bot.git
+git remote add origin https://github.com/gitbet1/telegram-bot.git
 git add .
 git commit -m "Initial commit"
 git push -u origin main
