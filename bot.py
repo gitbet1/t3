@@ -111,8 +111,10 @@ def start_bot():
 
 # Koyeb은 8000번 포트에서 실행되어야 함
 if __name__ == "__main__":
+    import threading
     bot_thread = threading.Thread(target=start_bot)
-    bot_thread.start()  # 텔레그램 봇 쓰레드 시작
+    bot_thread.start()
+    uvicorn.run("bot:app", host="0.0.0.0", port=8000, reload=False)
 
     # FastAPI 서버 실행 (포트 8000)
     uvicorn.run(app, host="0.0.0.0", port=8000)
