@@ -98,21 +98,3 @@ def send_message_with_random_delay():
         print(f"다음 메시지는 {wait_time}초 후에 전송됩니다...")
         time.sleep(wait_time)  # 지정된 시간만큼 대기
         random_send_message()  # 랜덤 메시지 전송
-
-# VPN 연결 상태 테스트 함수
-def test_vpn_connection():
-    test_url = f"https://api.telegram.org/bot{bot_token}/getMe"
-    try:
-        response = requests.get(test_url, timeout=60)  # 타임아웃 시간을 60초로 설정
-        if response.status_code == 200:
-            print("VPN이 정상적으로 연결되었습니다. 텔레그램 봇이 작동합니다.")
-        else:
-            print(f"에러 발생: {response.status_code}")
-    except requests.exceptions.Timeout:
-        print("VPN 연결이 시간 초과되었습니다. VPN 설정을 다시 확인하세요.")
-    except requests.exceptions.RequestException as e:
-        print(f"요청 중 오류 발생: {e}")
-
-# VPN 연결 상태 테스트 후 메시지 전송 시작
-test_vpn_connection()
-send_message_with_random_delay()
