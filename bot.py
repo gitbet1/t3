@@ -4,6 +4,9 @@ import random  # 랜덤값 생성
 import requests  # Telegram API에 요청을 보내기 위한 라이브러리
 import time  # 시간을 다루기 위한 모듈 추가
 import json  # JSON 데이터를 처리하기 위한 모듈 추가
+from fastapi import FastAPI  # FastAPI 추가
+import uvicorn  # Uvicorn 추가 (FastAPI 실행용)
+import threading  # 쓰레드를 사용하기 위한 모듈
 
 # 한국 시간(KST) 기준으로 날짜 가져오기
 def get_kst_date():
@@ -17,7 +20,6 @@ channel_id = '@crademaster_ch'  # 채널 ID
 
 # 이메일 랜덤 생성 함수
 def generate_random_email():
-    # 이메일 형식 생성: 두 글자의 랜덤 영문 소문자 + @ + *****@*****.com
     prefix = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=2))  # 2글자 랜덤 생성
     domain = random.choice(['com', 'net', 'co.kr'])  # 도메인 랜덤 선택
     email = f"{prefix}*****@*****.{domain}"  # 두 글자 랜덤 영문 소문자와 함께 이메일 생성
@@ -25,24 +27,22 @@ def generate_random_email():
 
 # 첫 번째 메시지 생성 함수 (고정된 레퍼럴)
 def generate_message_1():
-    # 확률에 따라 금액 범위 설정
     amount = random.choices(
         [random.randint(100, 1000), random.randint(1100, 10000), random.randint(10100, 20000), random.randint(20100, 40000), random.randint(40100, 50000)],
-        [0.5, 0.4, 0.08, 0.015, 0.005]  # 각 금액 범위에 대한 확률 (50%, 40%, 8%, 1.5%, 0.5%)
+        [0.5, 0.4, 0.08, 0.015, 0.005]
     )[0]
     
     email = generate_random_email()
-    referral_email = "Event code"  # 고정된 이벤트 코드
-    event_referral = "Event Referral Experience USDT Reward : 250 USDT"  # 고정된 이벤트 레퍼럴
-    current_date = get_kst_date()  # 한국 시간으로 현재 날짜 가져오기
+    referral_email = "Event code"
+    event_referral = "Event Referral Experience USDT Reward : 250 USDT"
+    current_date = get_kst_date()
     return f"✔️{current_date}\nSgin : {email}\nReferral : {referral_email}\n💰First Deposit : {amount:,} USDT💰\n💰{event_referral}💰\n🎉🎉🎉Congratulations on Joining CradeMaster!🎉🎉🎉"
 
 # 두 번째 메시지 생성 함수 (랜덤 레퍼럴 이메일)
 def generate_message_2():
-    # 확률에 따라 금액 범위 설정
     amount = random.choices(
         [random.randint(100, 1000), random.randint(1100, 10000), random.randint(10100, 20000), random.randint(20100, 40000), random.randint(40100, 50000)],
-        [0.5, 0.4, 0.08, 0.015, 0.005]  # 각 금액 범위에 대한 확률 (50%, 40%, 8%, 1.5%, 0.5%)
+        [0.5, 0.4, 0.08, 0.015, 0.005]
     )[0]
     
     email = generate_random_email()
@@ -93,8 +93,27 @@ def random_send_message():
 # 메시지 전송 주기 설정 (1분에서 12분 사이 랜덤 시간)
 def send_message_with_random_delay():
     while True:
-        # 1분에서 12분 사이 랜덤 시간 대기
         wait_time = random.randint(60, 180)
         print(f"다음 메시지는 {wait_time}초 후에 전송됩니다...")
-        time.sleep(wait_time)  # 지정된 시간만큼 대기
-        random_send_message()  # 랜덤 메시지 전송
+        time.sleep(wait_time)
+        random_send_message()
+
+# FastAPI 웹 서버 생성
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"message": "Telegram bot is running!"}
+
+# 텔레그램 봇을 별도의 쓰레드에서 실행
+def start_bot():
+    send_message_with_random_delay()
+
+# Koyeb은 8000번 포트에서 실행되어야 함
+if __name__ == "__main__":
+    bot_thread = threading.Thread(target=start_bot)
+    bot_thread.start()  # 텔레그램 봇 쓰레드 시작
+
+    # FastAPI 서버 실행 (포트 8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
