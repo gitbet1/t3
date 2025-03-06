@@ -52,7 +52,10 @@ def generate_message_2():
 
 # 출금 메시지 생성 함수
 def generate_withdrawal_message():
-    withdrawal_amount = random.randint(1000, 50000) // 100 * 100  # 100~3000 사이 랜덤, 100단위
+    withdrawal_amount = random.choices(
+        [random.randint(100, 1000), random.randint(1100, 10000), random.randint(10100, 20000), random.randint(20100, 40000), random.randint(40100, 50000)],
+        [0.1, 0.4, 0.3, 0.09, 0.01]
+    )[0]
     email = generate_random_email()
     current_date = get_kst_date()  # 한국 시간으로 현재 날짜 가져오기
     return f"✔️{current_date}\nSgin : {email}\n💵Withdrawal : {withdrawal_amount:,} USDT💵\n💲Withdrawal has been successfully processed from CradeMaster💲"
