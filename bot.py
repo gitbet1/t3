@@ -1,12 +1,17 @@
-import datetime  # 날짜 관련 기능
-import pytz  # 시간대 설정을 위한 라이브러리
-import random  # 랜덤값 생성
-import requests  # Telegram API에 요청을 보내기 위한 라이브러리
-import time  # 시간을 다루기 위한 모듈 추가
-import json  # JSON 데이터를 처리하기 위한 모듈 추가
-from fastapi import FastAPI  # FastAPI 추가
-import uvicorn  # Uvicorn 추가 (FastAPI 실행용)
-import threading  # 쓰레드를 사용하기 위한 모듈
+import logging
+import threading
+import time
+import random
+import requests
+import json
+import pytz
+import datetime
+from fastapi import FastAPI
+import uvicorn
+
+# 로그 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # 한국 시간(KST) 기준으로 날짜 가져오기
 def get_kst_date():
@@ -75,31 +80,39 @@ def send_telegram_message(message):
     try:
         response = requests.post(url, data=json.dumps(payload), headers=headers)
         response.raise_for_status()  # HTTP 에러 발생 시 예외 처리
-        print(f"메시지 전송 성공: {response.json()}")
+        logger.info(f"메시지 전송 성공: {response.json()}")
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"에러 발생: {e}")
-        print(f"에러 응답 내용: {response.text}")
+        logger.error(f"에러 발생: {e}")
+        if 'response' in locals():
+            logger.error(f"에러 응답 내용: {response.text}")
         return None
 
 # 메시지 랜덤 전송 함수 (입금/출금 메시지 랜덤 선택)
 def random_send_message():
-    transaction_type = random.choices(['deposit', 'withdraw'], [0.7, 0.3])[0]  # 입금: 70%, 출금: 30%
-    
-    if transaction_type == 'deposit':
-        message = generate_message_1() if random.choice([True, False]) else generate_message_2()
-    else:
-        message = generate_withdrawal_message()
-    
-    send_telegram_message(message)
+    try:
+        transaction_type = random.choices(['deposit', 'withdraw'], [0.7, 0.3])[0]  # 입금: 70%, 출금: 30%
+        
+        if transaction_type == 'deposit':
+            message = generate_message_1() if random.choice([True, False]) else generate_message_2()
+        else:
+            message = generate_withdrawal_message()
+        
+        send_telegram_message(message)
+    except Exception as e:
+        logger.error(f"랜덤 메시지 전송 중 에러 발생: {e}")
 
 # 메시지 전송 주기 설정 (1분에서 12분 사이 랜덤 시간)
 def send_message_with_random_delay():
     while True:
-        wait_time = random.randint(60, 180)
-        print(f"다음 메시지는 {wait_time}초 후에 전송됩니다...")
-        time.sleep(wait_time)
-        random_send_message()
+        try:
+            wait_time = random.randint(60, 180)
+            logger.info(f"다음 메시지는 {wait_time}초 후에 전송됩니다...")
+            time.sleep(wait_time)
+            random_send_message()
+        except Exception as e:
+            logger.error(f"메시지 전송 대기 중 에러 발생: {e}")
+            time.sleep(10)  # 에러 발생 시 잠시 대기 후 재시도
 
 # FastAPI 웹 서버 생성
 app = FastAPI()
@@ -114,11 +127,13 @@ def start_bot():
 
 # Koyeb은 8000번 포트에서 실행되어야 함
 if __name__ == "__main__":
-    import threading
-    bot_thread = threading.Thread(target=start_bot)
-    bot_thread.start()
-    uvicorn.run("bot:app", host="0.0.0.0", port=8000, reload=False)
+    try:
+        bot_thread = threading.Thread(target=start_bot)
+        bot_thread.daemon = True  # 데몬 스레드로 설정하여 서버 종료 시 자동 종료되도록 설정
+        bot_thread.start()
+        logger.info("텔레그램 봇 쓰레드가 시작되었습니다.")
 
-    # FastAPI 서버 실행 (포트 8000)
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-
+        # FastAPI 서버 실행 (포트 8000)
+        uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+    except Exception as e:
+        logger.error(f"애플리케이션 실행 중 에러 발생: {e}")
