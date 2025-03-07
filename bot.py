@@ -1,13 +1,13 @@
 import logging
-import threading
-import time
 import random
-import requests
+import time
 import json
 import pytz
 import datetime
 from fastapi import FastAPI
 import uvicorn
+import aiohttp
+import asyncio
 
 # 로그 설정
 logging.basicConfig(level=logging.INFO)
@@ -65,8 +65,8 @@ def generate_withdrawal_message():
     current_date = get_kst_date()  # 한국 시간으로 현재 날짜 가져오기
     return f"✔️{current_date}\nSgin : {email}\n💵Withdrawal : {withdrawal_amount:,} USDT💵\n💲Withdrawal has been successfully processed from CradeMaster💲"
 
-# 텔레그램 메시지 전송 함수
-def send_telegram_message(message):
+# 비동기 텔레그램 메시지 전송 함수
+async def send_telegram_message(message):
     global channel_id  # 채널 ID 변수 사용
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -78,18 +78,17 @@ def send_telegram_message(message):
     headers = {"Content-Type": "application/json"}
 
     try:
-        response = requests.post(url, data=json.dumps(payload), headers=headers)
-        response.raise_for_status()  # HTTP 에러 발생 시 예외 처리
-        logger.info(f"메시지 전송 성공: {response.json()}")
-        return response.json()
-    except requests.exceptions.RequestException as e:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, headers=headers) as response:
+                response.raise_for_status()  # HTTP 에러 발생 시 예외 처리
+                logger.info(f"메시지 전송 성공: {await response.json()}")
+                return await response.json()
+    except Exception as e:
         logger.error(f"에러 발생: {e}")
-        if 'response' in locals():
-            logger.error(f"에러 응답 내용: {response.text}")
         return None
 
 # 메시지 랜덤 전송 함수 (입금/출금 메시지 랜덤 선택)
-def random_send_message():
+async def random_send_message():
     try:
         transaction_type = random.choices(['deposit', 'withdraw'], [0.7, 0.3])[0]  # 입금: 70%, 출금: 30%
         
@@ -98,21 +97,21 @@ def random_send_message():
         else:
             message = generate_withdrawal_message()
         
-        send_telegram_message(message)
+        await send_telegram_message(message)
     except Exception as e:
         logger.error(f"랜덤 메시지 전송 중 에러 발생: {e}")
 
 # 메시지 전송 주기 설정 (1분에서 12분 사이 랜덤 시간)
-def send_message_with_random_delay():
+async def send_message_with_random_delay():
     while True:
         try:
             wait_time = random.randint(60, 180)
             logger.info(f"다음 메시지는 {wait_time}초 후에 전송됩니다...")
-            time.sleep(wait_time)
-            random_send_message()
+            await asyncio.sleep(wait_time)
+            await random_send_message()
         except Exception as e:
             logger.error(f"메시지 전송 대기 중 에러 발생: {e}")
-            time.sleep(10)  # 에러 발생 시 잠시 대기 후 재시도
+            await asyncio.sleep(10)  # 에러 발생 시 잠시 대기 후 재시도
 
 # FastAPI 웹 서버 생성
 app = FastAPI()
@@ -121,19 +120,16 @@ app = FastAPI()
 def read_root():
     return {"message": "Telegram bot is running!"}
 
-# 텔레그램 봇을 별도의 쓰레드에서 실행
-def start_bot():
-    send_message_with_random_delay()
+# 텔레그램 봇을 비동기 방식으로 실행
+async def start_bot():
+    await send_message_with_random_delay()
 
 # Koyeb은 8000번 포트에서 실행되어야 함
 if __name__ == "__main__":
     try:
-        bot_thread = threading.Thread(target=start_bot)
-        bot_thread.daemon = True  # 데몬 스레드로 설정하여 서버 종료 시 자동 종료되도록 설정
-        bot_thread.start()
-        logger.info("텔레그램 봇 쓰레드가 시작되었습니다.")
-
         # FastAPI 서버 실행 (포트 8000)
+        loop = asyncio.get_event_loop()
+        loop.create_task(start_bot())
         uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
     except Exception as e:
         logger.error(f"애플리케이션 실행 중 에러 발생: {e}")
